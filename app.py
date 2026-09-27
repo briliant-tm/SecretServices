@@ -22,6 +22,10 @@ class SteganographyApp:
         self.stego_path = None
         self.cover_image = None
         self.stego_image = None
+        self.analysis_cover_path = None
+        self.analysis_stego_path = None
+        self.analysis_cover_image = None
+        self.analysis_stego_image = None
 
         self.build_ui()
 
@@ -294,9 +298,54 @@ class SteganographyApp:
             font=("Segoe UI", 14, "bold"),
         ).pack(anchor="w", pady=(0, 10))
 
+        image_frame = ttk.LabelFrame(frame, text="Analysis Images", padding=12)
+        image_frame.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(image_frame, text="Cover Image (PNG/BMP)").grid(
+            row=0, column=0, sticky="w", padx=(0, 10), pady=5
+        )
+        ttk.Button(
+            image_frame,
+            text="Choose Cover",
+            command=self.choose_analysis_cover,
+        ).grid(row=0, column=1, sticky="w", pady=5)
+        self.analysis_cover_label = ttk.Label(
+            image_frame, text="No cover image selected"
+        )
+        self.analysis_cover_label.grid(
+            row=1, column=0, columnspan=3, sticky="w", pady=(0, 8)
+        )
+
+        ttk.Label(image_frame, text="Stego Image (PNG/BMP)").grid(
+            row=2, column=0, sticky="w", padx=(0, 10), pady=5
+        )
+        ttk.Button(
+            image_frame,
+            text="Choose Stego",
+            command=self.choose_analysis_stego,
+        ).grid(row=2, column=1, sticky="w", pady=5)
+        self.analysis_stego_label = ttk.Label(
+            image_frame, text="No stego image selected"
+        )
+        self.analysis_stego_label.grid(
+            row=3, column=0, columnspan=3, sticky="w", pady=(0, 8)
+        )
+
+        ttk.Button(
+            image_frame,
+            text="ANALYZE IMAGES",
+            command=self.analyze_images,
+            style="Action.TButton",
+        ).grid(row=4, column=1, sticky="w", pady=(5, 0))
+
+        self.analysis_metrics_var = tk.StringVar(value="MSE: -    |    PSNR: -")
+        ttk.Label(
+            image_frame, textvariable=self.analysis_metrics_var
+        ).grid(row=5, column=0, columnspan=3, sticky="w", pady=(10, 0))
+
         ttk.Button(
             frame,
-            text="Choose PNG/BMP Image",
+            text="Choose Image for LSB Visualization",
             command=self.visualize_selected_lsb,
         ).pack(anchor="w", pady=5)
 
@@ -314,6 +363,63 @@ class SteganographyApp:
             text="Save Histogram of Cover/Stego",
             command=self.save_histograms,
         ).pack(anchor="w", pady=15)
+
+    @staticmethod
+    def _image_filetypes():
+        return [("PNG/BMP Images", "*.png *.bmp")]
+
+    def choose_analysis_cover(self):
+        path = filedialog.askopenfilename(
+            title="Choose Cover Image",
+            filetypes=self._image_filetypes(),
+        )
+        if not path:
+            return
+        try:
+            self.analysis_cover_image = Image.open(path).convert("RGB")
+            self.analysis_cover_path = path
+            self.analysis_cover_label.config(text=path)
+            self.analysis_metrics_var.set("MSE: -    |    PSNR: -")
+        except Exception as exc:
+            messagebox.showerror("Error", f"Cannot open cover image:\n{exc}")
+
+    def choose_analysis_stego(self):
+        path = filedialog.askopenfilename(
+            title="Choose Stego Image",
+            filetypes=self._image_filetypes(),
+        )
+        if not path:
+            return
+        try:
+            self.analysis_stego_image = Image.open(path).convert("RGB")
+            self.analysis_stego_path = path
+            self.analysis_stego_label.config(text=path)
+            self.analysis_metrics_var.set("MSE: -    |    PSNR: -")
+        except Exception as exc:
+            messagebox.showerror("Error", f"Cannot open stego image:\n{exc}")
+
+    def analyze_images(self):
+        if self.analysis_cover_image is None or self.analysis_stego_image is None:
+            messagebox.showwarning(
+                "Warning", "Please choose both cover and stego images."
+            )
+            return
+
+        try:
+            mse = calculate_mse(
+                self.analysis_cover_image, self.analysis_stego_image
+            )
+            psnr = calculate_psnr(
+                self.analysis_cover_image, self.analysis_stego_image
+            )
+            psnr_text = "inf" if psnr == float("inf") else f"{psnr:.4f} dB"
+            self.analysis_metrics_var.set(
+                f"MSE: {mse:.6f}    |    PSNR: {psnr_text}"
+            )
+        except ValueError as exc:
+            messagebox.showerror("Analysis Error", str(exc))
+        except Exception as exc:
+            messagebox.showerror("Error", f"Image analysis failed:\n{exc}")
 
     def choose_cover(self):
         path = filedialog.askopenfilename(
@@ -438,9 +544,15 @@ class SteganographyApp:
             messagebox.showerror("Error", f"LSB visualization failed:\n{exc}")
 
     def save_histograms(self):
-        if self.cover_image is None or self.stego_image is None:
+        cover_image = self.analysis_cover_image
+        stego_image = self.analysis_stego_image
+        if cover_image is None or stego_image is None:
+            cover_image = self.cover_image
+            stego_image = self.stego_image
+
+        if cover_image is None or stego_image is None:
             messagebox.showwarning(
-                "Warning", "Embed a message first so cover and stego images are available."
+                "Warning", "Please choose both cover and stego images first."
             )
             return
 
@@ -454,7 +566,7 @@ class SteganographyApp:
             return
 
         try:
-            save_histogram(self.cover_image, self.stego_image, path)
+            save_histogram(cover_image, stego_image, path)
             messagebox.showinfo("Success", f"Histogram saved:\n{path}")
         except Exception as exc:
             messagebox.showerror("Error", f"Histogram generation failed:\n{exc}")
