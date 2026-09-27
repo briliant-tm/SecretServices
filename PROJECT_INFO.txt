@@ -1,0 +1,4 @@
+Secure Image Steganography - LSB
+Initial project scaffold for UTS Topic B.
+Run: python app.py
+Tests: python -m unittest discover -s tests -v
