@@ -59,9 +59,9 @@ class SteganographyApp:
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill="both", expand=True, padx=20, pady=(16, 20))
 
-        self.embed_tab = ttk.Frame(notebook, padding=20, style="Page.TFrame")
-        self.extract_tab = ttk.Frame(notebook, padding=20, style="Page.TFrame")
-        self.analysis_tab = ttk.Frame(notebook, padding=20, style="Page.TFrame")
+        self.embed_tab, self.embed_content = self.create_scrollable_tab(notebook)
+        self.extract_tab, self.extract_content = self.create_scrollable_tab(notebook)
+        self.analysis_tab, self.analysis_content = self.create_scrollable_tab(notebook)
 
         notebook.add(self.embed_tab, text="  01  Embed  ")
         notebook.add(self.extract_tab, text="  02  Extract  ")
@@ -70,6 +70,43 @@ class SteganographyApp:
         self.build_embed_tab()
         self.build_extract_tab()
         self.build_analysis_tab()
+
+    def create_scrollable_tab(self, notebook):
+        tab = ttk.Frame(notebook, padding=10, style="Page.TFrame")
+        canvas = tk.Canvas(
+            tab,
+            background="#f0f4f1",
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        scrollbar = ttk.Scrollbar(tab, orient="vertical", command=canvas.yview)
+        content = ttk.Frame(canvas, padding=10, style="Page.TFrame")
+
+        content_window = canvas.create_window((0, 0), window=content, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        content.bind(
+            "<Configure>",
+            lambda event: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+        canvas.bind(
+            "<Configure>",
+            lambda event: canvas.itemconfigure(content_window, width=event.width),
+        )
+        canvas.bind(
+            "<Enter>",
+            lambda event: canvas.bind_all(
+                "<MouseWheel>",
+                lambda wheel_event: canvas.yview_scroll(
+                    int(-wheel_event.delta / 120), "units"
+                ),
+            ),
+        )
+        canvas.bind("<Leave>", lambda event: canvas.unbind_all("<MouseWheel>"))
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        return tab, content
 
     def configure_styles(self):
         self.root.configure(bg="#f0f4f1")
@@ -159,7 +196,7 @@ class SteganographyApp:
         )
 
     def build_embed_tab(self):
-        frame = self.embed_tab
+        frame = self.embed_content
 
         ttk.Label(frame, text="Cover Image (PNG/BMP)").grid(row=0, column=0, sticky="w")
         ttk.Button(frame, text="Choose Image", command=self.choose_cover).grid(
@@ -237,7 +274,7 @@ class SteganographyApp:
         frame.rowconfigure(7, weight=1)
 
     def build_extract_tab(self):
-        frame = self.extract_tab
+        frame = self.extract_content
 
         ttk.Label(frame, text="Stego Image (PNG/BMP)").grid(
             row=0, column=0, sticky="w"
@@ -290,7 +327,7 @@ class SteganographyApp:
         frame.rowconfigure(4, weight=1)
 
     def build_analysis_tab(self):
-        frame = self.analysis_tab
+        frame = self.analysis_content
 
         ttk.Label(
             frame,
@@ -366,7 +403,13 @@ class SteganographyApp:
 
     @staticmethod
     def _image_filetypes():
-        return [("PNG/BMP Images", "*.png *.bmp")]
+        return [
+            ("Image files", "*.png *.jpg *.jpeg *.bmp"),
+            ("PNG files", "*.png"),
+            ("JPEG files", "*.jpg *.jpeg"),
+            ("BMP files", "*.bmp"),
+            ("All files", "*.*"),
+        ]
 
     def choose_analysis_cover(self):
         path = filedialog.askopenfilename(
@@ -424,7 +467,7 @@ class SteganographyApp:
     def choose_cover(self):
         path = filedialog.askopenfilename(
             title="Choose Cover Image",
-            filetypes=[("PNG/BMP Images", "*.png *.bmp")],
+            filetypes=self._image_filetypes(),
         )
         if not path:
             return
@@ -444,7 +487,7 @@ class SteganographyApp:
     def choose_stego(self):
         path = filedialog.askopenfilename(
             title="Choose Stego Image",
-            filetypes=[("PNG/BMP Images", "*.png *.bmp")],
+            filetypes=self._image_filetypes(),
         )
         if not path:
             return
@@ -524,7 +567,7 @@ class SteganographyApp:
     def visualize_selected_lsb(self):
         path = filedialog.askopenfilename(
             title="Choose Image",
-            filetypes=[("PNG/BMP Images", "*.png *.bmp")],
+            filetypes=self._image_filetypes(),
         )
         if not path:
             return
