@@ -11,6 +11,9 @@ from steganography.lsb import (
 from steganography.metrics import calculate_mse, calculate_psnr, save_histogram
 
 
+MAX_MESSAGE_BYTES = 5120
+
+
 class SteganographyApp:
     def __init__(self, root):
         self.root = root
@@ -228,25 +231,33 @@ class SteganographyApp:
             font=("Segoe UI", 10),
         )
         self.message_text.grid(row=3, column=1, columnspan=2, sticky="ew", pady=(15, 5))
+        self.message_size_var = tk.StringVar(
+            value="Ukuran pesan: 0 byte | Kategori: Belum ada pesan"
+        )
+        ttk.Label(frame, textvariable=self.message_size_var, style="Status.TLabel").grid(
+            row=4, column=1, columnspan=2, sticky="ew", pady=(0, 6)
+        )
+        self.message_text.bind("<<Modified>>", self.update_message_size)
+        self.message_text.edit_modified(False)
 
-        ttk.Label(frame, text="Stego-Key").grid(row=4, column=0, sticky="w", pady=5)
+        ttk.Label(frame, text="Stego-Key").grid(row=5, column=0, sticky="w", pady=5)
         self.embed_key = ttk.Entry(frame, width=45, show="*")
-        self.embed_key.grid(row=4, column=1, sticky="w")
+        self.embed_key.grid(row=5, column=1, sticky="w")
 
         ttk.Button(
             frame,
             text="EMBED MESSAGE",
             command=self.do_embed,
             style="Action.TButton",
-        ).grid(row=5, column=1, sticky="w", pady=15)
+        ).grid(row=6, column=1, sticky="w", pady=15)
 
         self.embed_status = tk.StringVar(value="Status: Waiting")
         ttk.Label(frame, textvariable=self.embed_status, style="Status.TLabel").grid(
-            row=6, column=0, columnspan=3, sticky="ew"
+            row=7, column=0, columnspan=3, sticky="ew"
         )
 
         preview = ttk.Frame(frame)
-        preview.grid(row=7, column=0, columnspan=3, sticky="nsew", pady=10)
+        preview.grid(row=8, column=0, columnspan=3, sticky="nsew", pady=10)
 
         self.cover_preview = ttk.Label(
             preview, text="COVER IMAGE", style="Section.TLabel", anchor="center"
@@ -260,7 +271,7 @@ class SteganographyApp:
 
         self.metrics_var = tk.StringVar(value="MSE: -    |    PSNR: -")
         ttk.Label(frame, textvariable=self.metrics_var).grid(
-            row=8, column=0, columnspan=3, sticky="w", pady=5
+            row=9, column=0, columnspan=3, sticky="w", pady=5
         )
 
         ttk.Button(
@@ -268,10 +279,32 @@ class SteganographyApp:
             text="SAVE STEGO IMAGE",
             command=self.save_stego,
             style="Action.TButton",
-        ).grid(row=9, column=1, sticky="w", pady=10)
+        ).grid(row=10, column=1, sticky="w", pady=10)
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(7, weight=1)
+        frame.rowconfigure(8, weight=1)
+
+    def update_message_size(self, _event=None):
+        if not self.message_text.edit_modified():
+            return
+
+        message = self.message_text.get("1.0", "end-1c")
+        size_bytes = len(message.encode("utf-8"))
+        if size_bytes == 0:
+            category = "Belum ada pesan"
+        elif size_bytes <= 100:
+            category = "Kecil (maks. 100 byte)"
+        elif size_bytes <= 1024:
+            category = "Sedang (101-1.024 byte)"
+        elif size_bytes <= MAX_MESSAGE_BYTES:
+            category = "Besar (1.025-5.120 byte)"
+        else:
+            category = "ERROR: Melebihi batas 5.120 byte"
+
+        self.message_size_var.set(
+            f"Ukuran pesan: {size_bytes:,} byte | Kategori: {category}"
+        )
+        self.message_text.edit_modified(False)
 
     def build_extract_tab(self):
         frame = self.extract_content
@@ -508,6 +541,16 @@ class SteganographyApp:
             return
         if not key:
             messagebox.showwarning("Warning", "Stego-key cannot be empty.")
+            return
+
+        message_size = len(message.encode("utf-8"))
+        if message_size > MAX_MESSAGE_BYTES:
+            error = (
+                f"Ukuran pesan {message_size:,} byte melebihi batas maksimum "
+                f"{MAX_MESSAGE_BYTES:,} byte."
+            )
+            self.embed_status.set(f"Status: Error - {error}")
+            messagebox.showerror("Batas Ukuran Pesan", error)
             return
 
         try:
