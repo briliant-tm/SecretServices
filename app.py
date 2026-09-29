@@ -17,7 +17,7 @@ MAX_MESSAGE_BYTES = 5120
 class SteganographyApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Secure Image Steganography - LSB")
+        self.root.title("Secret Services - LSB")
         self.root.geometry("980x720")
         self.root.minsize(900, 650)
 
@@ -46,7 +46,7 @@ class SteganographyApp:
         ).pack(anchor="w")
         tk.Label(
             header,
-            text="Secure Image Steganography",
+            text="Secret Services",
             bg="#173b37",
             fg="#f4f7ef",
             font=("Segoe UI", 20, "bold"),
